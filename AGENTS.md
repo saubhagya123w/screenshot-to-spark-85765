@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Prototype architecture
+- Keep fictional prototype records in a client-side context persisted after hydration; this enables refresh-safe demonstrations without implying a production backend.
+- Centralise session transitions and access checks in the domain model; UI actions must use the same approval, closure, and ownership rules.
+- Use separate file routes within a shared root application shell; each content route owns its metadata.
+- Keep report exports client-side and use a PDF library; never label a text or HTML download as PDF.
+- Store only categorised improvement signals in the learning view, not raw consultant feedback or uploaded business data.
