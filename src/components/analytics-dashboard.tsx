@@ -23,13 +23,8 @@ import { BarChart3, Pencil, Plus, Trash2, ArrowUp, ArrowDown, Download } from "l
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  INITIAL_CHARTS,
-  MONTHLY_DATA,
-  REGION_DATA,
-  type ChartSpec,
-  type Session,
-} from "@/lib/prototype-model";
+import { type ChartSpec, type Session } from "@/lib/prototype-model";
+import { type DataRow, type Dataset, numeric } from "@/lib/data-processing";
 import { Panel } from "./shared";
 import { downloadCSV } from "@/lib/prototype-export";
 const TYPES = [
@@ -41,26 +36,30 @@ const TYPES = [
   "Donut",
   "Scatter",
   "Bubble",
-  "Histogram",
   "Heatmap",
   "Treemap",
-  "Waterfall",
-  "Funnel",
   "KPI Card",
-  "Combo Chart",
+
 ];
-export function ChartGraphic({ spec }: { spec: ChartSpec }) {
+export function ChartGraphic({ spec, datasets }: { spec: ChartSpec; datasets: Dataset[] }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  const regional = spec.x === "Region" || spec.group === "Region";
-  let rows: Array<Record<string, string | number>> = regional ? REGION_DATA : MONTHLY_DATA;
-  const key = regional ? "Region" : "Month";
-  if (spec.range === "Last 3 months" && !regional) rows = MONTHLY_DATA.slice(-3);
+  const dataset = datasets.find(d => d.name === spec.table) ?? datasets[0];
+  const key = spec.x;
+  let raw = dataset?.rows ?? [];
+  const grouped = new Map<string, number[]>();
+  for(const row of raw) {
+    const value = numeric(row[spec.y]);
+    if(value === null) continue;
+    const group = String(row[key] ?? "");
+    grouped.set(group, [...(grouped.get(group) ?? []),value]);
+  }
+  let rows: DataRow[] = [...grouped].map(([group,values]) => ({ [key]: group, [spec.y]: spec.aggregation === "Count" ? values.length : spec.aggregation === "Average" ? values.reduce((n,v) => n+v,0)/values.length : values.reduce((n,v) => n+v,0) }));
   if (spec.filters.trim())
     rows = rows.filter((r) =>
       Object.values(r).some((v) => String(v).toLowerCase().includes(spec.filters.toLowerCase())),
     );
-  const measure = ["Revenue", "Expenses", "Profit"].includes(spec.y) ? spec.y : "Revenue";
+  const measure = spec.y;
   if (!rows.length)
     return (
       <div className="chart-wrap grid place-items-center text-xs text-muted-foreground">
@@ -85,7 +84,7 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
         width={42}
       />
       <Tooltip
-        formatter={(v) => `€${Number(v).toLocaleString()}`}
+        formatter={(v) => Number(v).toLocaleString()}
         contentStyle={{
           background: "var(--card)",
           borderColor: "var(--border)",
@@ -112,7 +111,7 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
     return (
       <div className="chart-wrap flex flex-col items-center justify-center">
         <div className="text-4xl font-semibold">
-          {spec.aggregation === "Count" ? "" : "€"}
+          
           {result.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
         <span className="mt-3 text-xs text-muted-foreground">
@@ -138,7 +137,7 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
                 <Cell key={i} fill={colors[i % colors.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(v) => `€${Number(v).toLocaleString()}`} />
+            <Tooltip formatter={(v) => Number(v).toLocaleString()} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -165,9 +164,9 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
         <ResponsiveContainer>
           <ScatterChart>
             {axis}
-            <XAxis type="number" dataKey="Revenue" />
-            <YAxis type="number" dataKey="Profit" />
-            <ZAxis dataKey={spec.type === "Bubble" ? "Expenses" : "Revenue"} range={[60, 400]} />
+            <XAxis type="number" dataKey={spec.x} />
+            <YAxis type="number" dataKey={spec.y} />
+            <ZAxis dataKey={spec.y} range={[60, 400]} />
             <Scatter data={rows} fill="var(--primary)" />
           </ScatterChart>
         </ResponsiveContainer>
@@ -183,7 +182,7 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
           >
             <span>{String(r[key as keyof typeof r])}</span>
             <strong className="mt-2">
-              €{Number(r[measure as keyof typeof r]).toLocaleString()}
+              {Number(r[measure as keyof typeof r]).toLocaleString()}
             </strong>
           </div>
         ))}
@@ -202,13 +201,6 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
               fill="var(--info-soft)"
               strokeWidth={2}
             />
-            <Area
-              type="monotone"
-              dataKey="Profit"
-              stroke="var(--chart-profit)"
-              fill="transparent"
-              strokeWidth={2}
-            />
           </AreaChart>
         ) : spec.type === "Line" || spec.type === "Combo Chart" ? (
           <LineChart data={rows}>
@@ -220,9 +212,6 @@ export function ChartGraphic({ spec }: { spec: ChartSpec }) {
               strokeWidth={2}
               dot={false}
             />
-            {spec.type === "Combo Chart" && (
-              <Line type="monotone" dataKey="Profit" stroke="var(--chart-profit)" />
-            )}
           </LineChart>
         ) : (
           <BarChart data={rows} layout={spec.type === "Bar" ? "vertical" : "horizontal"}>
@@ -297,13 +286,8 @@ export function AnalyticsDashboard({
             size="sm"
             onClick={() =>
               downloadCSV(`${session.id}-dashboard.csv`, [
-                ["Month", "Revenue", "Expenses", "Profit"],
-                ...MONTHLY_DATA.map((r) => [
-                  r.Month,
-                  String(r.Revenue),
-                  String(r.Expenses),
-                  String(r.Profit),
-                ]),
+                session.processed[0]?.columns ?? [],
+                ...(session.processed[0]?.rows ?? []).map(r => (session.processed[0]?.columns ?? []).map(c => String(r[c] ?? ""))),
               ])
             }
           >
@@ -317,13 +301,13 @@ export function AnalyticsDashboard({
                 setEdit({
                   ...(charts[0] ?? {
                     type: "Area",
-                    x: "Month",
-                    y: "Revenue",
+                    x: session.processed[0]?.columns[0] ?? "",
+                    y: session.processed[0]?.columns[1] ?? "",
                     aggregation: "Sum",
-                    group: "Month",
+                    group: "",
                     filters: "",
-                    range: "Last 6 months",
-                    table: "Sales",
+                    range: "All data",
+                    table: session.processed[0]?.name ?? "",
                   }),
                   id: crypto.randomUUID(),
                   title: "New visualisation",
@@ -392,15 +376,11 @@ export function AnalyticsDashboard({
               )
             }
           >
-            <ChartGraphic spec={c} />
+            <ChartGraphic spec={c} datasets={session.processed} />
             <div className="mt-3 flex gap-4 text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <span className="status-dot text-primary" />
                 {c.y}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="status-dot text-success" />
-                Profit
               </span>
               <span className="ml-auto">{c.range}</span>
             </div>
@@ -421,7 +401,7 @@ export function AnalyticsDashboard({
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
           <DialogTitle>Configure visualisation</DialogTitle>
-          <DialogDescription>Choose fields from the fictional business dataset.</DialogDescription>
+          <DialogDescription>Select fields from your approved data.</DialogDescription>
           {edit && (
             <form onSubmit={save} className="space-y-4">
               <label className="field">
@@ -431,12 +411,12 @@ export function AnalyticsDashboard({
               <div className="form-grid">
                 {[
                   ["Chart Type", "type", TYPES],
-                  ["Data Table", "table", ["Sales", "Expenses", "Invoices", "Transactions"]],
-                  ["X-axis", "x", ["Month", "Region"]],
-                  ["Y-axis / Measure", "y", ["Revenue", "Expenses", "Profit"]],
-                  ["Group By", "group", ["Month", "Region"]],
+                  ["Data Table", "table", session.processed.map(d => d.name)],
+                  ["X-axis", "x", [...new Set(session.processed.flatMap(d => d.columns))]],
+                  ["Y-axis / Measure", "y", [...new Set(session.processed.flatMap(d => d.columns))]],
+                  ["Group By", "group", [...new Set(session.processed.flatMap(d => d.columns))]],
                   ["Aggregation", "aggregation", ["Sum", "Average", "Count"]],
-                  ["Date Range", "range", ["Last 6 months", "Last 3 months"]],
+                  ["Date Range", "range", ["All data"]],
                 ].map(([label, name, options]) => (
                   <label className="field" key={String(name)}>
                     {String(label)}
@@ -456,12 +436,12 @@ export function AnalyticsDashboard({
                   <Input
                     name="filters"
                     defaultValue={edit.filters}
-                    placeholder="e.g. Germany or Nov"
+                    placeholder="Filter value"
                   />
                 </label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Advanced types use simplified sample-data renderings in this prototype.
+                Calculations use the selected fields and aggregation.
               </p>
               <Button type="submit">
                 <CheckIcon />

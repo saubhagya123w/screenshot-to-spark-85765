@@ -5,7 +5,7 @@ export const Route = createFileRoute("/profile")({
   head: () =>
     Meta(
       "Consultant Profile",
-      "Manage your Secure AI Partner consultant identity, organisation and demo account.",
+      "Manage your Secure AI Partner consultant identity, organisation and account.",
     ),
   component: () => <AccountSettings profileOnly />,
 });

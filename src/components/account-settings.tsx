@@ -84,8 +84,7 @@ export function AccountSettings({ profileOnly = false }: { profileOnly?: boolean
                   Collaboration<span className="text-muted-foreground">Explicit invitation</span>
                 </div>
                 <p className="security-note">
-                  These controls are simulated. No hosted authentication or production permissions
-                  are connected.
+                  Signed-in owners manage their sessions. Invited accounts have view-only access.
                 </p>
               </Panel>
               {[
@@ -129,8 +128,7 @@ export function AccountSettings({ profileOnly = false }: { profileOnly?: boolean
                   ))}
                   {title === "Data protection preferences" && (
                     <p className="security-note">
-                      Prototype preferences only. Fictional data is retained in this browser until
-                      cleared; confidential data should not be uploaded.
+                      Review detected identifiers and protection methods before approving data. Detection uses field-name and value rules, not a compliance guarantee.
                     </p>
                   )}
                 </Panel>
@@ -143,7 +141,7 @@ export function AccountSettings({ profileOnly = false }: { profileOnly?: boolean
           <h3 className="font-semibold">Consultant workspace</h3>
           <p className="text-xs text-muted-foreground mt-2">{data.profile.organisation}</p>
           <div className="my-5">
-            <Status status="Demo account" />
+            <Status status="Signed-in account" />
           </div>
           <div className="security-row">
             Secure sessions<span>{data.sessions.length}</span>
@@ -153,8 +151,7 @@ export function AccountSettings({ profileOnly = false }: { profileOnly?: boolean
           </div>
           <p className="security-note flex items-start gap-2">
             <LockKeyhole size={13} className="shrink-0 mt-1" />
-            Designed around privacy-focused data processing. This is an interactive prototype, not a
-            production-secure service.
+            Review your organisation’s data-handling requirements before uploading confidential information.
           </p>
         </Panel>
       </div>

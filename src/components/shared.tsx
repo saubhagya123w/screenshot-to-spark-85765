@@ -135,7 +135,7 @@ export function SessionTable({
       </table>
       {!sessions.length && (
         <p className="p-8 text-center text-sm text-muted-foreground">
-          No sessions match your search.
+          No sessions to display.
         </p>
       )}
     </div>
@@ -163,9 +163,7 @@ export function SecurityOverview() {
         Inactivity protection<span className="font-medium">2 minutes</span>
       </div>
       <p className="security-note">
-        Fictional data · Simulated security
-        <br />
-        Not a production-secure environment.
+        Session access requires a signed-in account. Review protection results before approving data.
       </p>
     </>
   );

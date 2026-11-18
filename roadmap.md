@@ -1,8 +1,7 @@
-# Secure AI Partner prototype
+# Secure AI Partner
 
-- [x] Enterprise design system, navigation, home overview, and sample data
-- [x] Seven-phase consultant workflow, approvals, feedback, editing, and PDF exports
-- [x] Pause, inactivity lock, simulated re-authentication, and collaborator invitations
-- [x] Read-only session history and privacy-safe feedback learning
-- [x] Monthly configuration, execution simulation, reports, and email preview
-- [x] Settings/account, rule tests, end-to-end verification, and commit
+- [ ] Remove seeded records, pre-filled business information, and fabricated activity across the platform
+- [ ] Process user-provided tabular data through protection, quality, structure, formulas, dashboards, and PDF history
+- [ ] Start monthly configurations empty and fail safely when external scheduling, sources, or delivery are unavailable
+- [ ] Verify empty states, user-data workflow, rule tests, and save changes
+- [ ] Hosted authentication, real source connections, unattended scheduling, and email delivery — require Cloud services

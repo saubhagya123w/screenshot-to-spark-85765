@@ -1,0 +1,16 @@
+CREATE TABLE public.secure_sessions (id text PRIMARY KEY, owner_id uuid NOT NULL DEFAULT auth.uid(), payload jsonb NOT NULL, invited_emails text[] NOT NULL DEFAULT '{}');
+GRANT SELECT, INSERT, UPDATE ON public.secure_sessions TO authenticated;
+GRANT ALL ON public.secure_sessions TO service_role;
+ALTER TABLE public.secure_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY session_read ON public.secure_sessions FOR SELECT TO authenticated USING (owner_id = auth.uid() OR lower(auth.jwt()->>'email') = ANY(invited_emails));
+CREATE POLICY session_create ON public.secure_sessions FOR INSERT TO authenticated WITH CHECK (owner_id = auth.uid() AND payload->>'owner' = auth.uid()::text);
+CREATE POLICY session_update ON public.secure_sessions FOR UPDATE TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid() AND payload->>'owner' = auth.uid()::text);
+CREATE FUNCTION public.validate_session_update() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$ BEGIN IF OLD.owner_id <> NEW.owner_id OR OLD.id <> NEW.id THEN RAISE EXCEPTION 'Session ownership cannot change'; END IF; IF OLD.payload->>'status' IN ('Completed','Closed') THEN RAISE EXCEPTION 'Closed sessions are read-only'; END IF; RETURN NEW; END $$;
+CREATE TRIGGER session_update_guard BEFORE UPDATE ON public.secure_sessions FOR EACH ROW EXECUTE FUNCTION public.validate_session_update();
+CREATE TABLE public.workspace_settings (user_id uuid PRIMARY KEY DEFAULT auth.uid(), payload jsonb NOT NULL DEFAULT '{}');
+GRANT SELECT, INSERT, UPDATE ON public.workspace_settings TO authenticated;
+GRANT ALL ON public.workspace_settings TO service_role;
+ALTER TABLE public.workspace_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY settings_read ON public.workspace_settings FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY settings_create ON public.workspace_settings FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+CREATE POLICY settings_update ON public.workspace_settings FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());

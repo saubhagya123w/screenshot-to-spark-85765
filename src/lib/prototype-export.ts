@@ -23,7 +23,7 @@ export async function exportPDF(title: string, lines: string[], filename: string
   pdf.text(title, 20, y);
   y += 12;
   pdf.setFontSize(10);
-  for (const line of ["Fictional business data | Prototype report", "", ...lines]) {
+  for (const line of lines) {
     const wrapped = pdf.splitTextToSize(line, 170) as string[];
     for (const text of wrapped) {
       if (y > 275) {
@@ -37,40 +37,18 @@ export async function exportPDF(title: string, lines: string[], filename: string
   }
   pdf.save(filename);
 }
-export const REPORT_SECTIONS: [string, string][] = [
-  [
-    "Executive Summary",
-    "Revenue reached EUR 284,500 in November, an increase of 12.8% over the comparable prior period. Net profit was EUR 88,300, with a 31.04% margin. Growth was driven by German and Swedish sales.",
-  ],
-  [
-    "Revenue Analysis",
-    "Germany contributed EUR 114,500, representing 40.2% of total revenue. Sweden contributed EUR 76,000, followed by Denmark at EUR 54,000 and Finland at EUR 40,000.",
-  ],
-  [
-    "Expense & Profitability Analysis",
-    "Operating expenses totalled EUR 196,200. Expense growth remains below revenue growth. Procurement and logistics are the largest controllable cost categories.",
-  ],
-  [
-    "Trends & Visualisation Findings",
-    "Six-month revenue increased from EUR 205,000 in June to EUR 284,500 in November. The dashboard shows improving profitability, with a temporary seasonal dip in August.",
-  ],
-  [
-    "Strengths & Opportunities",
-    "Strong regional diversification and improving margins offer opportunities to expand high-performing product categories in Sweden and Germany.",
-  ],
-  [
-    "Weaknesses & Risks",
-    "Missing customer attributes limit retention analysis. Supplier concentration and variable logistics costs may affect future profitability. Outstanding invoices require monitoring.",
-  ],
-  [
-    "Recommendations",
-    "Prioritise profitable product categories. Review logistics contracts. Improve customer data completeness and establish a monthly overdue-invoice review.",
-  ],
-  [
-    "Conclusion",
-    "Business performance is improving. Continue monthly monitoring of revenue, profitability and data quality before extending customer-level analytics.",
-  ],
-];
+export function reportSections(s: Session): [string, string][] {
+  return [
+    ["Analytics requirements", s.prompt],
+    ["Data summary", `${s.processed.reduce((n,d) => n + d.rows.length,0)} approved rows across ${s.processed.length} tables. Sources: ${s.files.map(f => f.name).join(", ")}.`],
+    ["Data quality", `${s.quality}% across evaluated dimensions. ${s.dimensions.map(d => `${d.name}: ${d.score}% (${d.detail})`).join("; ")}`],
+    ["Analytics fitness and limitations", `${s.fitness}%. ${s.limitations.join(" ")}`],
+    ["Approved calculations", s.formulas.filter(f => f.verified).map(f => `${f.name}: ${f.result}. Formula: ${f.formula}`).join("; ")],
+    ["Dashboard", s.charts.map(c => `${c.title}: ${c.type}; ${c.x} / ${c.y}; ${c.aggregation}; ${c.filters || "no filter"}`).join("; ")],
+    ["Consultant decisions", s.decisions.map(d => `${PHASES[d.phase]}: ${d.action}${d.feedback ? ` — ${d.feedback}` : ""}`).join("; ")],
+    ["Conclusions", "Results are derived from the imported data and approved calculations. Business accuracy, risks, opportunities and causal interpretation require consultant assessment; no unsupported findings are inferred."],
+  ];
+}
 export function reportLines(s: Session) {
   return [
     `Session: ${s.id} | ${s.name}`,
@@ -80,7 +58,7 @@ export function reportLines(s: Session) {
     `Objective: ${s.objective || s.prompt}`,
     `Quality: ${s.quality}% | Analytics fitness: ${s.fitness}%`,
     ...s.formulas.map((f) => `${f.name}: ${f.result}`),
-    ...REPORT_SECTIONS.flatMap(([title, text]) => [title, text]),
+    ...reportSections(s).flatMap(([title, text]) => [title, text]),
   ];
 }
 export function downloadReport(s: Session) {
@@ -109,7 +87,7 @@ export function downloadAutoReport(a: Automation, r: Run) {
       `Run: ${r.id} | ${r.date}`,
       `Analytics questions: ${r.questions}`,
       `Quality ${r.quality}% | Fitness ${r.fitness}%`,
-      ...REPORT_SECTIONS.flatMap(([title, text]) => [title, text]),
+      `Execution status: ${r.status}`, `Delivery: ${r.email}`,
     ],
     `${r.id}-monthly-report.pdf`,
   );

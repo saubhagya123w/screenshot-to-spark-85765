@@ -22,6 +22,7 @@ function NewSession() {
     const collaborator = String(f.get("collaborator") ?? "");
     const s = makeSession(
       {
+        owner: data.profile.email,
         name: String(f.get("name")),
         company: String(f.get("company")),
         consultant: String(f.get("consultant")),
@@ -55,11 +56,11 @@ function NewSession() {
             <div className="form-grid">
               <label className="field">
                 Session Name
-                <Input name="name" required placeholder="e.g. November Revenue Analysis" />
+                <Input name="name" required placeholder="Session name" />
               </label>
               <label className="field">
                 Business / Company Name
-                <Input name="company" required defaultValue="Nordic Business Solutions GmbH" />
+                <Input name="company" required />
               </label>
               <label className="field">
                 Consultant Name
@@ -106,7 +107,7 @@ function NewSession() {
           <Panel title="Consultant-controlled workflow">
             <p className="text-xs text-muted-foreground leading-relaxed">
               AI prepares each phase. You review the results, request corrections and approve before
-              progressing. Sample business data is available in your workspace.
+              progressing. Import your business data to begin.
             </p>
           </Panel>
         </div>

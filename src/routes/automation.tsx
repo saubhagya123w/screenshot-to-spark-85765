@@ -25,17 +25,16 @@ import { SOURCE_NAMES } from "@/components/session-workspace";
 import {
   nextMonthlyDate,
   makeSession,
-  INITIAL_PROMPT,
   type Automation,
   type Run,
 } from "@/lib/prototype-model";
-import { downloadAutoReport, REPORT_SECTIONS } from "@/lib/prototype-export";
+import { downloadAutoReport } from "@/lib/prototype-export";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 export const Route = createFileRoute("/automation")({
   head: () =>
     Meta(
       "Automated Monthly Analytics",
-      "Configure monthly business analytics rules, sources, questions, schedules and simulated report delivery.",
+      "Configure monthly business analytics rules, sources, questions, schedules and report requirements and execution history.",
     ),
   component: AutomationPage,
 });
@@ -51,7 +50,7 @@ const STEPS = [
   "Review & activate",
 ];
 const PROCESSING = [
-  "Scheduled execution begins",
+  "Validating configured requirements",
   "Collecting configured data sources",
   "Applying confidentiality policies",
   "Masking personal identifiers",
@@ -64,7 +63,7 @@ const PROCESSING = [
   "Performing business analytics",
   "Generating dashboard",
   "Generating report",
-  "Simulating report email delivery",
+  "Validating report email delivery",
 ];
 function AutomationPage() {
   const { data, saveAutomation } = usePrototype();
@@ -77,19 +76,19 @@ function AutomationPage() {
     setStep(0);
     setEdit({
       id: `AUTO-${crypto.randomUUID().slice(0, 8)}`,
-      name: "Monthly Business Analytics",
-      company: "Nordic Business Solutions GmbH",
+      name: "",
+      company: "",
       owner: data.profile.name,
       sources: [],
-      rules: "Mask identifiers; remove bank details; standardise currencies; remove duplicates.",
-      questions: INITIAL_PROMPT,
-      kpis: "Revenue, Expenses, Net Profit, Profit Margin",
+      rules: "",
+      questions: "",
+      kpis: "",
       threshold: 85,
       day: 1,
       time: "09:00",
       timezone: "Europe/Berlin",
-      recipient: "Emma Wilson",
-      email: "emma@example.com",
+      recipient: "",
+      email: "",
       extra: "",
       active: false,
       history: [],
@@ -103,23 +102,14 @@ function AutomationPage() {
       setRunning({ id: a.id, stage: i });
       await new Promise((r) => setTimeout(r, 250));
     }
-    const passed = 94 >= a.threshold;
     const r: Run = {
-      id: `RUN-${crypto.randomUUID().slice(0, 8)}`,
-      date: new Date().toISOString(),
-      status: passed ? "Completed" : "Requires Attention",
-      quality: 94,
-      fitness: 91,
-      email: passed ? "Delivered (simulated)" : "Not sent — quality threshold failed",
-      questions: a.questions,
+      id: `RUN-${crypto.randomUUID().slice(0,8)}`, date:new Date().toISOString(),
+      status:"Requires Attention", quality:0, fitness:0,
+      email:"Not sent — source access and delivery are not configured", questions:a.questions,
     };
-    saveAutomation({ ...a, history: [r, ...a.history] });
+    saveAutomation({...a,history:[r,...a.history]});
     setRunning(null);
-    toast[passed ? "success" : "warning"](
-      passed
-        ? "Monthly execution completed. Report delivery simulated."
-        : "Data quality is below the approved threshold. Report withheld.",
-    );
+    toast.error("Execution stopped: source access is not configured. No analytics or report was generated.");
   }
   function persist(active: boolean) {
     if (!edit) return;
@@ -153,11 +143,11 @@ function AutomationPage() {
         <div>
           <p className="text-xs font-medium">A separate, fully automated workflow</p>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            Monthly schedules and email deliveries are simulated in this prototype. Executions use
-            your latest approved requirements.
+            No connected data sources or email delivery service. Configurations can be saved; unattended execution is not enabled.
           </p>
         </div>
       </div>
+      {!data.automations.length && <Panel title="Monthly configurations"><div className="py-8 text-center"><CalendarClock className="mx-auto text-muted-foreground mb-3"/><h3 className="text-sm font-medium">No configurations yet</h3><p className="text-xs text-muted-foreground mt-2">No monthly execution or report has been created.</p></div></Panel>}
       <div className="space-y-6">
         {data.automations.map((a) => (
           <Panel
@@ -196,7 +186,7 @@ function AutomationPage() {
                 </Button>
                 <Button size="sm" disabled={!a.active || !!running} onClick={() => run(a)}>
                   <Play />
-                  Simulate Scheduled Execution
+                  Validate Configuration
                 </Button>
               </div>
             </div>
@@ -345,7 +335,7 @@ function AutomationPage() {
               </table>
               {!a.history.length && (
                 <p className="text-xs p-5 text-muted-foreground">
-                  No executions yet. Simulate a scheduled run to generate a report.
+                  No execution history yet.
                 </p>
               )}
             </div>
@@ -405,8 +395,7 @@ function AutomationPage() {
                       />
                     </label>
                     <p className="mt-3 text-xs text-muted-foreground">
-                      This prototype simulates an authorised company owner; real role verification
-                      is not connected.
+                      Only the signed-in configuration owner can manage this configuration.
                     </p>
                   </>
                 )}
@@ -581,8 +570,7 @@ function AutomationPage() {
                       Recipient: {edit.recipient} · {edit.email}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Activation approves this configuration for simulated monthly runs. No real
-                      emails or scheduled background jobs are created.
+                      This saves your approved requirements. Connect data sources and delivery before unattended monthly execution can begin.
                     </p>
                   </div>
                 )}
@@ -622,7 +610,7 @@ function AutomationPage() {
                 ? "Generated monthly dashboard"
                 : "Monthly business analytics report"}
           </DialogTitle>
-          <DialogDescription>Fictional analytics · No real email sent</DialogDescription>
+          <DialogDescription>Execution and delivery records.</DialogDescription>
           {preview &&
             (preview.mode === "email" ? (
               <div className="space-y-5">
@@ -645,16 +633,13 @@ function AutomationPage() {
                 </div>
                 <p className="text-sm">Dear {preview.a.recipient},</p>
                 <p className="text-sm leading-relaxed">
-                  Your monthly analytics report for {preview.a.company} is ready. Revenue reached
-                  €284,500 with net profit of €88,300 and a 31.04% margin.
+                  Execution for {preview.a.company}: {preview.r.status}.
                 </p>
                 <p className="text-sm leading-relaxed">
-                  Key findings: revenue growth is strong in Germany and Sweden. Review logistics
-                  costs and improve customer attribute completeness before retention analysis.
+                  Delivery status: {preview.r.email}.
                 </p>
                 <p className="text-sm">
-                  Recommendation: prioritise high-margin categories and monitor overdue invoices
-                  monthly.
+                  Requirements: {preview.r.questions}
                 </p>
                 {preview.r.status === "Completed" && (
                   <Button
@@ -675,7 +660,7 @@ function AutomationPage() {
                   {preview.a.company} · {preview.r.id}
                 </p>
                 <p className="text-sm">Analytics requirements: {preview.r.questions}</p>
-                {REPORT_SECTIONS.map(([t, b]) => (
+                {[["Analytics requirements",preview.r.questions],["Execution status",preview.r.status],["Email delivery",preview.r.email]].map(([t, b]) => (
                   <section key={t}>
                     <h3 className="font-semibold text-sm mb-2">{t}</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">{b}</p>

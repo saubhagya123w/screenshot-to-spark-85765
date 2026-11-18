@@ -8,7 +8,8 @@ import {
   isInactive,
   learningSignal,
   nextMonthlyDate,
-  INITIAL_FORMULAS,
+  initialData,
+  canEdit,
 } from "@/lib/prototype-model";
 describe("Consultant workflow rules", () => {
   for (const phase of [1, 2, 3, 4, 5])
@@ -16,17 +17,18 @@ describe("Consultant workflow rules", () => {
       const s = makeSession({
         phase,
         approved: [],
-        formulas: INITIAL_FORMULAS.map((f) => ({ ...f, verified: true })),
+        processedPhase: phase,
+        formulas: [{ name:"Total",formula:"SUM(amount)",fields:"amount",result:"10",verified:true }],
       });
       expect(approvePhase(s).phase).toBe(phase);
     });
   it("requires requirements and data in phase 1", () => {
     const s = makeSession({ prompt: "Revenue analytics" });
     expect(approvePhase(s).phase).toBe(0);
-    expect(approvePhase({ ...s, sample: true }).phase).toBe(1);
+    expect(approvePhase({ ...s, datasets: [{ name:"Uploaded",columns:["amount"],rows:[{amount:10}] }] }).phase).toBe(1);
   });
   it("requires verified formulas", () => {
-    const s = makeSession({ phase: 4, approved: [0, 1, 2, 3] });
+    const s = makeSession({ phase: 4, approved: [0, 1, 2, 3], processedPhase:4, formulas:[{name:"Total",formula:"SUM(amount)",fields:"amount",result:"10",verified:false}] });
     expect(approvePhase(s).phase).toBe(4);
     expect(
       approvePhase({ ...s, formulas: s.formulas.map((f) => ({ ...f, verified: true })) }).phase,
@@ -50,10 +52,11 @@ describe("Consultant workflow rules", () => {
     );
     expect(s.phase).toBe(2);
     expect(s.decisions[0]?.feedback).toBe("Keep missing values flagged");
-    expect(s.quality).toBe(94);
+    expect(s.quality).toBe(0);
+    expect(s.processedPhase).toBe(-1);
   });
   it("retains approvals", () => {
-    const s = approvePhase(makeSession({ phase: 1, approved: [0] }));
+    const s = approvePhase(makeSession({ phase: 1, approved: [0], processedPhase:1 }));
     expect(s.approved).toEqual([0, 1]);
     expect(s.decisions[0]?.action).toBe("Approved");
   });
@@ -70,11 +73,12 @@ describe("Session protection", () => {
   });
   it("grants access to owner and invited users only", () => {
     const s = makeSession({
+      owner:"owner-id",
       collaborators: [
         { email: "invited@example.com", name: "Invitee", role: "Consultant", permission: "View" },
       ],
     });
-    expect(hasAccess(s, "owner@example.com", "alex")).toBe(true);
+    expect(hasAccess(s, "owner@example.com", "owner-id")).toBe(true);
     expect(hasAccess(s, "other@example.com", "other")).toBe(false);
     expect(hasAccess(s, "invited@example.com", "other")).toBe(true);
   });
@@ -88,6 +92,26 @@ describe("Session protection", () => {
       expect(approvePhase(s)).toEqual(s);
       expect(rejectPhase(s, "Correction")).toEqual(s);
     }
+  });
+});
+describe("Empty operational workspace", () => {
+  it("contains no pre-populated records or profile information", () => {
+    const data = initialData();
+    expect(data.sessions).toEqual([]);
+    expect(data.automations).toEqual([]);
+    expect(data.profile).toEqual({name:"",email:"",organisation:"",role:""});
+  });
+  it("new sessions contain no invented analytics or requirements", () => {
+    const session = makeSession({});
+    expect(session.prompt).toBe(""); expect(session.formulas).toEqual([]);
+    expect(session.charts).toEqual([]); expect(session.quality).toBe(0);
+    expect(session.datasets).toEqual([]);
+  });
+  it("a session ID or empty identity does not grant access", () => {
+    expect(hasAccess(makeSession({}),"","")).toBe(false);
+  });
+  it("locked, invited, and closed sessions cannot be edited", () => {
+    for(const status of ["Locked","Invited","Closed"] as const) expect(canEdit(makeSession({status}))).toBe(false);
   });
 });
 describe("Monthly and learning rules", () => {

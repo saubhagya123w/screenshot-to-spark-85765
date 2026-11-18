@@ -1,3 +1,4 @@
+import { type Dataset, type ProtectionRule, type QualityIssue, calculateFormula, numericColumns } from "./data-processing";
 export const PHASES = [
   "Prompt & integration",
   "Data protection",
@@ -11,13 +12,13 @@ export const PHASE_TITLES = [
   "Analytics Prompt & Data Integration",
   "Policies & Confidential Data Protection",
   "Data Cleaning & Data Quality Management",
-  "Data Quality, Structuring & Relationships",
+  "Data Structuring & Relationships",
   "Formula Verification & KPI Calculation",
   "Analytics & Visualisation",
   "Final Report, Export & Session Closure",
 ];
 export const SLEEP_MS = 120_000;
-export type SessionStatus = "Active" | "Pending Approval" | "Paused" | "Sleeping" | "Completed";
+export type SessionStatus = "Active" | "Pending Approval" | "Paused" | "Sleeping" | "Locked" | "Invited" | "Closed" | "Completed";
 export type Decision = {
   phase: number;
   action: "Approved" | "Rejected";
@@ -59,7 +60,13 @@ export type Session = {
   prompt: string;
   sources: string[];
   files: { name: string; size: number; time: string }[];
-  sample: boolean;
+  datasets: Dataset[];
+  processed: Dataset[];
+  protection: ProtectionRule[];
+  issues: QualityIssue[];
+  dimensions: { name: string; score: number; detail: string }[];
+  limitations: string[];
+  processedPhase: number;
   approved: number[];
   decisions: Decision[];
   activity: { text: string; time: string; phase: number }[];
@@ -107,92 +114,6 @@ export type AppData = {
   profile: Profile;
   preferences: Record<string, boolean>;
 };
-export const INITIAL_PROMPT =
-  "Analyse monthly revenue and profitability for Nordic Business Solutions GmbH. Compare sales across regions, identify the most profitable product categories and highlight changes in operational expenses. Include revenue growth, profit margin and outstanding invoices.";
-export const INITIAL_FORMULAS: Formula[] = [
-  {
-    name: "Total Revenue",
-    formula: "SUM(Sales Amount)",
-    result: "€284,500",
-    fields: "Sales.amount",
-    verified: false,
-  },
-  {
-    name: "Total Expenses",
-    formula: "SUM(Expense Amount)",
-    result: "€196,200",
-    fields: "Expenses.amount",
-    verified: false,
-  },
-  {
-    name: "Net Profit",
-    formula: "Total Revenue - Total Expenses",
-    result: "€88,300",
-    fields: "Revenue, Expenses",
-    verified: false,
-  },
-  {
-    name: "Profit Margin",
-    formula: "Net Profit / Total Revenue * 100",
-    result: "31.04%",
-    fields: "Net Profit, Revenue",
-    verified: false,
-  },
-  {
-    name: "Revenue Growth",
-    formula: "(Current Revenue - Previous Revenue) / Previous Revenue * 100",
-    result: "12.8%",
-    fields: "Sales.month, Sales.amount",
-    verified: false,
-  },
-  {
-    name: "Average Transaction Value",
-    formula: "Total Revenue / Number of Transactions",
-    result: "€227.60",
-    fields: "Sales.amount, Transactions.id",
-    verified: false,
-  },
-];
-export const INITIAL_CHARTS: ChartSpec[] = [
-  {
-    id: "revenue",
-    title: "Revenue & profitability",
-    type: "Area",
-    x: "Month",
-    y: "Revenue",
-    aggregation: "Sum",
-    group: "Month",
-    filters: "",
-    range: "Last 6 months",
-    table: "Sales",
-  },
-  {
-    id: "regions",
-    title: "Sales by region",
-    type: "Bar",
-    x: "Region",
-    y: "Revenue",
-    aggregation: "Sum",
-    group: "Region",
-    filters: "",
-    range: "Last 6 months",
-    table: "Sales",
-  },
-];
-export const MONTHLY_DATA = [
-  { Month: "Jun", Revenue: 205000, Expenses: 156000, Profit: 49000 },
-  { Month: "Jul", Revenue: 224000, Expenses: 169000, Profit: 55000 },
-  { Month: "Aug", Revenue: 216000, Expenses: 157000, Profit: 59000 },
-  { Month: "Sep", Revenue: 252200, Expenses: 179000, Profit: 73200 },
-  { Month: "Oct", Revenue: 268000, Expenses: 188500, Profit: 79500 },
-  { Month: "Nov", Revenue: 284500, Expenses: 196200, Profit: 88300 },
-];
-export const REGION_DATA = [
-  { Region: "Germany", Revenue: 114500, Expenses: 80000, Profit: 34500 },
-  { Region: "Sweden", Revenue: 76000, Expenses: 50000, Profit: 26000 },
-  { Region: "Denmark", Revenue: 54000, Expenses: 38000, Profit: 16000 },
-  { Region: "Finland", Revenue: 40000, Expenses: 28200, Profit: 11800 },
-];
 export function makeSession(input: Partial<Session>, ids: string[] = []): Session {
   let id = `SAP-${Math.floor(100000 + Math.random() * 900000)}`;
   while (ids.includes(id)) id = `SAP-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -200,9 +121,9 @@ export function makeSession(input: Partial<Session>, ids: string[] = []): Sessio
   return {
     id,
     name: "New Secure Session",
-    company: "Nordic Business Solutions GmbH",
-    owner: "alex",
-    consultant: "Alex Morgan",
+    company: "",
+    owner: "",
+    consultant: "",
     description: "",
     objective: "",
     created: now,
@@ -211,25 +132,31 @@ export function makeSession(input: Partial<Session>, ids: string[] = []): Sessio
     prompt: "",
     sources: [],
     files: [],
-    sample: false,
+    datasets: [],
+    processed: [],
+    protection: [],
+    issues: [],
+    dimensions: [],
+    limitations: [],
+    processedPhase: -1,
     approved: [],
     decisions: [],
     activity: [{ text: "Session created", time: now, phase: 0 }],
     collaborators: [],
-    formulas: structuredClone(INITIAL_FORMULAS),
-    charts: structuredClone(INITIAL_CHARTS),
-    quality: 92,
-    fitness: 88,
-    relationships: ["Sales.customer_id → Customers.id", "Sales.product_id → Products.id"],
+    formulas: [],
+    charts: [],
+    quality: 0,
+    fitness: 0,
+    relationships: [],
     lastActivity: Date.now(),
     ...input,
   };
 }
-export function hasAccess(s: Session, email: string, ownerId = "alex") {
-  return s.owner === ownerId || s.collaborators.some((c) => c.email === email);
+export function hasAccess(s: Session, email: string, ownerId = "") {
+  return Boolean(ownerId && s.owner === ownerId) || Boolean(email && s.collaborators.some((c) => c.email.toLowerCase() === email.toLowerCase()));
 }
 export function canEdit(s: Session) {
-  return !["Completed", "Paused", "Sleeping"].includes(s.status);
+  return !["Completed", "Closed", "Paused", "Sleeping", "Locked", "Invited"].includes(s.status);
 }
 export function isInactive(last: number, now: number) {
   return now - last >= SLEEP_MS;
@@ -237,9 +164,10 @@ export function isInactive(last: number, now: number) {
 export function approvePhase(s: Session): Session {
   if (!canEdit(s)) return s;
   if (s.phase > 0 && !s.approved.includes(s.phase - 1)) return s;
-  if (s.phase === 0 && (!s.prompt.trim() || (!s.sample && !s.sources.length && !s.files.length)))
+  if (s.phase === 0 && (!s.prompt.trim() || !s.datasets.some(d => d.rows.length)))
     return s;
-  if (s.phase === 4 && s.formulas.some((f) => !f.verified)) return s;
+  if (s.phase > 0 && s.processedPhase !== s.phase) return s;
+  if (s.phase === 4 && (!s.formulas.length || s.formulas.some((f) => !f.verified))) return s;
   if (s.phase === 6) return s;
   const time = new Date().toISOString();
   return {
@@ -268,7 +196,7 @@ export function rejectPhase(s: Session, feedback: string): Session {
       ...s.activity,
       { text: "Correction instructions submitted; processing repeated", time, phase: s.phase },
     ],
-    quality: s.phase === 2 ? Math.min(98, s.quality + 2) : s.quality,
+    processedPhase: -1,
     status: "Pending Approval",
   };
 }
@@ -331,135 +259,15 @@ export function nextMonthlyDate(
   return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(a.day, 28)).padStart(2, "0")} ${a.time} (${a.timezone})`;
 }
 export function initialData(): AppData {
-  const base = {
-    sample: true,
-    prompt: INITIAL_PROMPT,
-    sources: ["Accounting system", "Sales system"],
-  };
-  const sessions = [
-    makeSession({
-      ...base,
-      id: "SAP-847291",
-      name: "Sales Performance Analysis",
-      phase: 5,
-      approved: [0, 1, 2, 3, 4],
-      status: "Active",
-      formulas: INITIAL_FORMULAS.map((f) => ({ ...f, verified: true })),
-    }),
-    makeSession({
-      ...base,
-      id: "SAP-847315",
-      name: "Financial Analytics",
-      phase: 2,
-      approved: [0, 1],
-      status: "Pending Approval",
-    }),
-    makeSession({
-      ...base,
-      id: "SAP-847328",
-      name: "Operational Cost Review",
-      phase: 1,
-      approved: [0],
-      status: "Pending Approval",
-    }),
-    makeSession({
-      ...base,
-      id: "SAP-847322",
-      name: "Customer Analytics",
-      phase: 6,
-      status: "Completed",
-      approved: [0, 1, 2, 3, 4, 5, 6],
-      completed: "2026-11-17T14:30:00Z",
-    }),
-    makeSession({
-      ...base,
-      id: "SAP-847309",
-      name: "Q3 Revenue & Profitability",
-      phase: 6,
-      status: "Completed",
-      approved: [0, 1, 2, 3, 4, 5, 6],
-      completed: "2026-11-16T11:45:00Z",
-    }),
-    makeSession({
-      ...base,
-      id: "SAP-847301",
-      name: "Inventory & Demand Analysis",
-      phase: 3,
-      approved: [0, 1, 2],
-      status: "Sleeping",
-    }),
-  ].map((s) => ({
-    ...s,
-    created: "2026-11-18T08:30:00Z",
-    activity: [
-      { text: "Session created", time: "2026-11-18T08:30:00Z", phase: 0 },
-      ...s.approved.map((p) => ({
-        text: `${PHASES[p]} approved`,
-        time: "2026-11-18T09:00:00Z",
-        phase: p,
-      })),
-    ],
-    decisions: s.approved.map((p) => ({
-      phase: p,
-      action: "Approved" as const,
-      feedback: "",
-      time: "2026-11-18T09:00:00Z",
-      consultant: s.consultant,
-    })),
-  }));
   return {
-    sessions,
-    automations: [
-      {
-        id: "AUTO-1001",
-        name: "Monthly Financial Performance",
-        company: "Nordic Business Solutions GmbH",
-        owner: "Alex Morgan",
-        sources: ["Accounting system", "Sales system"],
-        rules:
-          "Mask personal identifiers, remove bank details, standardise EUR values, remove duplicate invoices.",
-        questions:
-          "What was monthly revenue? How did expenses change? What are the main profitability risks?",
-        kpis: "Revenue, Expenses, Net Profit, Profit Margin",
-        threshold: 85,
-        day: 1,
-        time: "09:00",
-        timezone: "Europe/Berlin",
-        recipient: "Emma Wilson",
-        email: "emma@example.com",
-        extra: "",
-        active: true,
-        changes: [],
-        history: [
-          {
-            id: "RUN-1001",
-            date: "2026-11-01T08:00:00Z",
-            status: "Completed",
-            quality: 94,
-            fitness: 91,
-            email: "Delivered (simulated)",
-            questions: "Compare revenue and expenses for October.",
-          },
-        ],
-      },
-    ],
-    profile: {
-      name: "Alex Morgan",
-      email: "alex@example.com",
-      organisation: "Nordic Advisory Group",
-      role: "Senior Consultant",
-    },
-    preferences: {
-      "Confidential data identification": true,
-      "Sensitive-data filtering": true,
-      Masking: true,
-      Anonymisation: true,
-      Pseudonymisation: false,
-      "Session invitations": true,
-      "Session approvals": true,
-      "Session completion": true,
-      "Automated analytics completion": true,
-      "Report delivery": true,
-    },
+    sessions: [], automations: [],
+    profile: { name: "", email: "", organisation: "", role: "" },
+    preferences: { "Confidential data identification": true, "Sensitive-data filtering": true, Masking: true, Anonymisation: false, Pseudonymisation: false, "Session invitations": true, "Session approvals": true, "Session completion": true, "Automated analytics completion": true, "Report delivery": true },
   };
+}
+export function proposedFormulas(datasets: Dataset[]): Formula[] {
+  return [...new Set(datasets.flatMap(numericColumns))].map(field => ({ name: `Total ${field}`, formula: `SUM(${field})`, fields: field, result: calculateFormula(`SUM(${field})`, datasets), verified: false }));
+}
+export function proposedCharts(datasets: Dataset[]): ChartSpec[] {
+  return datasets.flatMap(d => numericColumns(d).slice(0, 4).map(field => ({ id: crypto.randomUUID(), title: `${field} by ${d.columns.find(c => !numericColumns(d).includes(c)) ?? d.columns[0]}`, type: "Bar", x: d.columns.find(c => !numericColumns(d).includes(c)) ?? d.columns[0] ?? field, y: field, aggregation: "Sum", group: "", filters: "", range: "All data", table: d.name })));
 }

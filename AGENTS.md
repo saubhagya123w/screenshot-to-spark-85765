@@ -30,7 +30,9 @@ use the editor.
 <!-- LOVABLE:END -->
 
 ## Prototype architecture
-- Keep fictional prototype records in a client-side context persisted after hydration; this enables refresh-safe demonstrations without implying a production backend.
+- Start prototype records empty and persist user-created workspace state only after hydration; use a versioned key so obsolete seeded demonstrations do not reappear.
+- Derive processing summaries, formula results, charts, and report content from imported rows; unavailable external services must fail explicitly rather than produce fabricated success.
+- Parse CSV and spreadsheets with dedicated libraries and evaluate only allowlisted aggregate formula syntax; never execute user formulas as JavaScript.
 - Centralise session transitions and access checks in the domain model; UI actions must use the same approval, closure, and ownership rules.
 - Use separate file routes within a shared root application shell; each content route owns its metadata.
 - Keep report exports client-side and use a PDF library; never label a text or HTML download as PDF.

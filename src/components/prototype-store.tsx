@@ -1,8 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { initialData, type AppData, type Session, type Automation } from "@/lib/prototype-model";
+import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { loadWorkspace, saveWorkspaceSession, saveWorkspaceSettings } from "@/lib/workspace.functions";
+import { toast } from "sonner";
 type Store = {
   data: AppData;
   ready: boolean;
+  userId: string;
+  email: string;
   updateSession: (id: string, fn: (s: Session) => Session) => void;
   addSession: (s: Session) => void;
   saveAutomation: (a: Automation) => void;
@@ -12,37 +18,43 @@ const Context = createContext<Store | null>(null);
 export function PrototypeProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
   const [ready, setReady] = useState(false);
+  const [userId,setUserId] = useState("");
+  const [email,setEmail] = useState("");
+  const load = useServerFn(loadWorkspace);
+  const saveSession = useServerFn(saveWorkspaceSession);
+  const saveSettings = useServerFn(saveWorkspaceSettings);
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("secure-ai-partner-v1");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (
-          Array.isArray(parsed.sessions) &&
-          Array.isArray(parsed.automations) &&
-          parsed.profile &&
-          parsed.preferences
-        )
-          setData(parsed);
-      }
-    } catch {
-      /* Retain fictional samples if storage is unavailable. */
+    let cancelled = false;
+    async function restore() {
+      const { data: auth } = await supabase.auth.getUser();
+      if(cancelled) return;
+      setUserId(auth.user?.id ?? ""); setEmail(auth.user?.email ?? "");
+      if(auth.user) {
+        try { const saved = await load(); if(!cancelled) setData({ ...saved, profile: { ...saved.profile, email: auth.user.email ?? "" } }); }
+        catch(error) { toast.error(error instanceof Error ? error.message : "Workspace could not be opened."); }
+      } else setData(initialData());
+      if(!cancelled) setReady(true);
     }
-    setReady(true);
+    restore();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
+      if(["SIGNED_IN","SIGNED_OUT","USER_UPDATED"].includes(event)) { setReady(false); setTimeout(restore,0); }
+    });
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
   useEffect(() => {
-    if (ready) {
-      try {
-        localStorage.setItem("secure-ai-partner-v1", JSON.stringify(data));
-      } catch {
-        /* Storage may be disabled. */
-      }
-    }
+    if (!ready || !userId) return;
+    const timer = setTimeout(() => saveSettings({ data: { profile: data.profile, preferences: data.preferences, automations: data.automations } }).catch(error => toast.error(error.message)), 600);
+    return () => clearTimeout(timer);
   }, [data, ready]);
   const updateSession = (id: string, fn: (s: Session) => Session) =>
-    setData((prev) => ({ ...prev, sessions: prev.sessions.map((s) => (s.id === id ? fn(s) : s)) }));
+    setData((prev) => ({ ...prev, sessions: prev.sessions.map((s) => {
+      if(s.id !== id || s.owner !== userId || ["Completed","Closed"].includes(s.status)) return s;
+      const next = fn(s);
+      if(next !== s) saveSession({ data: next }).catch(error => toast.error(error.message));
+      return next;
+    }) }));
   const addSession = (s: Session) =>
-    setData((prev) => ({ ...prev, sessions: [s, ...prev.sessions] }));
+    { if(!userId) return; const session = { ...s, owner: userId }; saveSession({ data: session }).then(() => setData(prev => ({ ...prev, sessions: [session,...prev.sessions] }))).catch(error => toast.error(error.message)); };
   const saveAutomation = (a: Automation) =>
     setData((prev) => ({
       ...prev,
@@ -51,7 +63,7 @@ export function PrototypeProvider({ children }: { children: ReactNode }) {
         : [a, ...prev.automations],
     }));
   return (
-    <Context.Provider value={{ data, ready, updateSession, addSession, saveAutomation, setData }}>
+    <Context.Provider value={{ data, ready, userId, email, updateSession, addSession, saveAutomation, setData }}>
       {children}
     </Context.Provider>
   );

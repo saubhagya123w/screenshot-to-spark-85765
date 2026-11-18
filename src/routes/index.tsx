@@ -217,18 +217,18 @@ function Home() {
                   <div className="text-[10px] text-muted-foreground">Last report delivery</div>
                   <div className="text-xs text-success font-medium mt-2 flex items-center gap-1">
                     <CheckCircle2 size={12} />
-                    Delivered
+                    {automation.history[0]?.email ?? "No delivery yet"}
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-1">
-                    November 1 · Simulated
+                    {automation.history[0] ? new Date(automation.history[0].date).toLocaleDateString("en-GB") : "—"}
                   </div>
                 </div>
               </div>
               <div className="mt-5">
-                <Progress value={100} />
+                <Progress value={automation.history[0]?.status === "Completed" ? 100 : 0} />
                 <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
-                  <span>Latest execution complete</span>
-                  <span>100%</span>
+                  <span>Latest execution</span>
+                  <span>{automation.history[0]?.status ?? "Not run"}</span>
                 </div>
               </div>
               <Button asChild variant="outline" size="sm" className="w-full mt-5">
@@ -246,37 +246,14 @@ function Home() {
           title="Recent activity"
           action={<Activity size={16} className="text-muted-foreground" />}
         >
-          {[
-            {
-              icon: CheckCircle2,
-              title: "Data cleaning approved",
-              sub: "Sales Performance Analysis",
-              time: "24 min ago",
-            },
-            {
-              icon: FileText,
-              title: "Business report generated",
-              sub: "Customer Analytics",
-              time: "1 hour ago",
-            },
-            {
-              icon: Plus,
-              title: "Secure session created",
-              sub: "Operational Cost Review",
-              time: "2 hours ago",
-            },
-          ].map((a) => (
-            <div className="mini-activity" key={a.title}>
-              <span className="activity-icon">
-                <a.icon />
-              </span>
-              <div className="flex-1">
-                <div className="text-xs font-medium">{a.title}</div>
-                <div className="text-[10px] text-muted-foreground mt-1">{a.sub}</div>
-              </div>
-              <span className="text-[9px] text-muted-foreground whitespace-nowrap">{a.time}</span>
+          {sessions.flatMap(s => s.activity.map(a => ({ ...a, sessionName: s.name }))).sort((a,b) => b.time.localeCompare(a.time)).slice(0,3).map((a,i) => (
+            <div className="mini-activity" key={i}>
+              <span className="activity-icon"><Activity /></span>
+              <div className="flex-1"><div className="text-xs font-medium">{a.text}</div><div className="text-[10px] text-muted-foreground mt-1">{a.sessionName}</div></div>
+              <span className="text-[9px] text-muted-foreground">{new Date(a.time).toLocaleDateString("en-GB")}</span>
             </div>
           ))}
+          {!sessions.length && <p className="text-xs text-muted-foreground py-4">No activity yet.</p>}
           <Button asChild variant="link" size="sm" className="px-0 mt-1">
             <Link to="/history">
               View activity history
@@ -350,6 +327,7 @@ function Home() {
             </Button>
           }
         >
+          {!completed.length && <p className="text-xs text-muted-foreground">No reports yet.</p>}
           <div className="flex flex-wrap gap-6">
             {completed.map((s) => (
               <Link

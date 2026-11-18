@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   ShieldCheck,
   LayoutDashboard,
@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { usePrototype } from "./prototype-store";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 const NAV = [
   { to: "/" as const, label: "Home", icon: LayoutDashboard },
   { to: "/sessions/new" as const, label: "New Secure Session", icon: Plus },
@@ -32,11 +34,13 @@ const NAV = [
   { to: "/feedback" as const, label: "Feedback & System Learning", icon: MessageSquareText },
 ];
 export function AppShell({ children }: { children: ReactNode }) {
-  const { data } = usePrototype();
+  const { data, userId } = usePrototype();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const [mobile, setMobile] = useState(false);
   const [notifications, setNotifications] = useState(false);
-  const [loggedOut, setLoggedOut] = useState(false);
+
   const title =
     NAV.find((n) => n.to === location.pathname)?.label ??
     (location.pathname.startsWith("/sessions/")
@@ -45,6 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ? "Settings"
         : "Profile & Account");
   const pending = data.sessions.filter((s) => s.status === "Pending Approval");
+  if(location.pathname === "/auth") return <main className="min-h-screen bg-background p-6">{children}</main>;
   return (
     <div className="app-shell">
       <aside className={`app-sidebar ${mobile ? "mobile-open" : ""}`}>
@@ -104,7 +109,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
             <div className="mt-3 flex items-center gap-1.5 text-[9px] text-sidebar-dim">
               <span className="status-dot text-success" />
-              Prototype environment
+              Workspace
             </div>
           </div>
           <div className="sidebar-person">
@@ -116,18 +121,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                 .slice(0, 2)}
             </Link>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium">{data.profile.name}</div>
+              <div className="truncate text-xs font-medium">{data.profile.name || "Account"}</div>
               <div className="mt-1 text-[10px] text-sidebar-dim">{data.profile.role}</div>
             </div>
-            <Button
+            {userId ? <Button
               size="icon"
               variant="ghost"
               title="Log out"
               aria-label="Log out"
-              onClick={() => setLoggedOut(true)}
+              onClick={async () => { await queryClient.cancelQueries(); queryClient.clear(); await supabase.auth.signOut(); await navigate({to:"/auth",replace:true}); }}
             >
               <LogOut size={15} />
-            </Button>
+            </Button> : <Button asChild variant="outline" size="sm"><Link to="/auth">Sign in</Link></Button>}
           </div>
         </div>
       </aside>
@@ -195,7 +200,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <ShieldCheck size={11} />
               Designed around privacy. Guided by human expertise.
             </span>
-            <span>Secure AI Partner · Interactive prototype</span>
+            <span>Secure AI Partner</span>
           </footer>
         </main>
       </div>
@@ -221,40 +226,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           {!pending.length && (
             <p className="text-sm text-muted-foreground">You’re all caught up.</p>
           )}
-        </DialogContent>
-      </Dialog>
-      <Dialog open={loggedOut} onOpenChange={() => {}}>
-        <DialogContent>
-          <DialogTitle>Demo workspace signed out</DialogTitle>
-          <DialogDescription>
-            Sign in to resume the simulated consultant account. No real authentication service is
-            connected.
-          </DialogDescription>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setLoggedOut(false);
-            }}
-            className="space-y-4"
-          >
-            <label className="field">
-              Email
-              <Input type="email" required defaultValue={data.profile.email} />
-            </label>
-            <label className="field">
-              Demo password
-              <Input
-                type="password"
-                required
-                minLength={4}
-                placeholder="Any 4 or more characters"
-              />
-            </label>
-            <Button className="w-full" type="submit">
-              <Check />
-              Sign in to demo
-            </Button>
-          </form>
         </DialogContent>
       </Dialog>
     </div>
