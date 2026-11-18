@@ -5,5 +5,5 @@
 - [x] Start monthly configurations empty and fail safely when external scheduling, sources, or delivery are unavailable
 - [x] Hosted authentication and owner-only Cloud storage with invited read-only access
 - [x] Verify chart rendering, workflow tests, and save changes
-- [ ] Live source connections and unattended monthly execution — waiting on the chosen source and its access
+- [ ] Live company database (PostgreSQL, read-only, internet-reachable) for monthly execution — waiting on the database connection details
 - [ ] Automatic report emails — waiting on a verified sending domain
