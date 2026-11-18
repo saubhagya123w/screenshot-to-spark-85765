@@ -268,6 +268,11 @@ export function initialData(): AppData {
 export function proposedFormulas(datasets: Dataset[]): Formula[] {
   return [...new Set(datasets.flatMap(numericColumns))].map(field => ({ name: `Total ${field}`, formula: `SUM(${field})`, fields: field, result: calculateFormula(`SUM(${field})`, datasets), verified: false }));
 }
-export function proposedCharts(datasets: Dataset[]): ChartSpec[] {
-  return datasets.flatMap(d => numericColumns(d).slice(0, 4).map(field => ({ id: crypto.randomUUID(), title: `${field} by ${d.columns.find(c => !numericColumns(d).includes(c)) ?? d.columns[0]}`, type: "Bar", x: d.columns.find(c => !numericColumns(d).includes(c)) ?? d.columns[0] ?? field, y: field, aggregation: "Sum", group: "", filters: "", range: "All data", table: d.name })));
+export function proposedCharts(datasets: Dataset[], prompt = ""): ChartSpec[] {
+  return datasets.flatMap(d => {
+    const measures = numericColumns(d);
+    const categories = d.columns.filter(c => !measures.includes(c) && d.rows.some(r => !/^\[(masked|anonymised)\]$/.test(String(r[c] ?? ""))));
+    const category = categories.find(c => prompt.toLowerCase().includes(c.toLowerCase())) ?? categories[0] ?? d.columns[0] ?? "";
+    return measures.slice(0,4).map(field => ({ id:crypto.randomUUID(),title:`${field} by ${category}`,type:"Bar",x:category,y:field,aggregation:"Sum",group:"",filters:"",range:"All data",table:d.name }));
+  });
 }

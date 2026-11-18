@@ -7,7 +7,7 @@ export const loadWorkspace = createServerFn({ method: "POST" }).middleware([requ
   if (sessions.error || settings.error) throw new Error(sessions.error?.message ?? settings.error?.message);
   const saved = (settings.data?.payload ?? {}) as Partial<AppData>;
   const defaults = initialData();
-  return { ...defaults, ...saved, sessions: sessions.data.map(r => r.payload as unknown as Session), profile: { ...defaults.profile, ...saved.profile, email: context.userId } };
+  return { ...defaults, ...saved, sessions: sessions.data.map(r => r.payload as unknown as Session), profile: { ...defaults.profile, ...saved.profile } };
 });
 export const saveWorkspaceSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: Session) => {
   if (!input || typeof input.id !== "string" || !/^SAP-\d{6}$/.test(input.id)) throw new Error("Invalid session");

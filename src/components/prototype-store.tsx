@@ -10,7 +10,7 @@ type Store = {
   userId: string;
   email: string;
   updateSession: (id: string, fn: (s: Session) => Session) => void;
-  addSession: (s: Session) => void;
+  addSession: (s: Session) => Promise<void>;
   saveAutomation: (a: Automation) => void;
   setData: React.Dispatch<React.SetStateAction<AppData>>;
 };
@@ -53,8 +53,12 @@ export function PrototypeProvider({ children }: { children: ReactNode }) {
       if(next !== s) saveSession({ data: next }).catch(error => toast.error(error.message));
       return next;
     }) }));
-  const addSession = (s: Session) =>
-    { if(!userId) return; const session = { ...s, owner: userId }; saveSession({ data: session }).then(() => setData(prev => ({ ...prev, sessions: [session,...prev.sessions] }))).catch(error => toast.error(error.message)); };
+  const addSession = async (s: Session) => {
+    if(!userId) throw new Error("Sign in to create a session.");
+    const session = { ...s, owner: userId };
+    await saveSession({ data: session });
+    setData(prev => ({ ...prev, sessions: [session,...prev.sessions] }));
+  };
   const saveAutomation = (a: Automation) =>
     setData((prev) => ({
       ...prev,

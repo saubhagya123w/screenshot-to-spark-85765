@@ -6,8 +6,8 @@ describe("User data workflow",() => {
     const rules=detectProtection(rows);
     expect(rules.map(r => r.field)).toContain("customer_name");
     const processed=protectData(rows,rules);
-    expect(processed[0]?.rows[0]?.customer_name).toBe("[masked]");
-    expect(processed[0]?.rows[0]?.amount).toBe(10);
+    expect(processed[0]?.rows[0]?.["customer_name"]).toBe("[masked]");
+    expect(processed[0]?.rows[0]?.["amount"]).toBe(10);
   });
   it("removes configured fields from prepared data",() => {
     const processed=protectData(rows,[{field:"customer_name",method:"Removal",reason:"User policy"}]);
@@ -29,6 +29,6 @@ describe("User data workflow",() => {
   it("reports missing values without inventing replacements",() => {
     const result=assessData([{name:"Missing",columns:["amount"],rows:[{amount:""},{amount:20}]}],"Total amount");
     expect(result.dimensions.find(d => d.name === "Completeness")?.score).toBe(50);
-    expect(result.cleaned[0]?.rows[0]?.amount).toBe("");
+    expect(result.cleaned[0]?.rows[0]?.["amount"]).toBe("");
   });
 });

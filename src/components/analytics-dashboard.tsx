@@ -215,22 +215,10 @@ export function ChartGraphic({ spec, datasets }: { spec: ChartSpec; datasets: Da
           </LineChart>
         ) : (
           <BarChart data={rows} layout={spec.type === "Bar" ? "vertical" : "horizontal"}>
-            {spec.type === "Bar" ? (
-              <>
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey={key}
-                  width={65}
-                  tick={{ fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip />
-              </>
-            ) : (
-              axis
-            )}
+            <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
+            <XAxis type={spec.type === "Bar" ? "number" : "category"} dataKey={spec.type === "Bar" ? measure : key} tick={{fontSize:10}} />
+            <YAxis type={spec.type === "Bar" ? "category" : "number"} dataKey={spec.type === "Bar" ? key : measure} width={80} tick={{fontSize:10}} />
+            <Tooltip />
             <Bar dataKey={measure} fill="var(--primary)" radius={[3, 3, 3, 3]} barSize={24} />
           </BarChart>
         )}

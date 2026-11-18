@@ -30,7 +30,8 @@ use the editor.
 <!-- LOVABLE:END -->
 
 ## Prototype architecture
-- Start prototype records empty and persist user-created workspace state only after hydration; use a versioned key so obsolete seeded demonstrations do not reappear.
+- Start workspace records empty; load and persist user-owned sessions and settings through authenticated Cloud functions, never obsolete browser demo state.
+- Session ownership is the verified account ID, invitation access is read-only, and closed-session immutability is enforced in the database as well as the UI.
 - Derive processing summaries, formula results, charts, and report content from imported rows; unavailable external services must fail explicitly rather than produce fabricated success.
 - Parse CSV and spreadsheets with dedicated libraries and evaluate only allowlisted aggregate formula syntax; never execute user formulas as JavaScript.
 - Centralise session transitions and access checks in the domain model; UI actions must use the same approval, closure, and ownership rules.

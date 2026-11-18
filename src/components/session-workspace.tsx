@@ -42,7 +42,7 @@ export function SessionWorkspace({ id }: { id: string }) {
   const patch = (change: Partial<Session>) => updateSession(id,x => canEdit(x) ? ({...x,...change,lastActivity:Date.now()}) : x);
   const exportData = () => { for(const d of s.processed) downloadCSV(`${id}-${d.name.replace(/[^\w.-]/g,"_")}.csv`,[d.columns,...d.rows.map(r => d.columns.map(c => String(r[c] ?? "")))]); };
   async function upload(files: FileList | null) {
-    if(!files || !editable) return;
+    if(!s || !files || !editable) return;
     setBusy(true); setError("");
     try {
       const imported = (await Promise.all(Array.from(files).map(readDataset))).flat();
@@ -54,7 +54,7 @@ export function SessionWorkspace({ id }: { id: string }) {
     finally { setBusy(false); }
   }
   async function processPhase() {
-    if(!editable) return;
+    if(!s || !editable) return;
     setBusy(true); setError("");
     try {
       await new Promise(r => setTimeout(r,100));
@@ -66,7 +66,7 @@ export function SessionWorkspace({ id }: { id: string }) {
       }
       if(s.phase === 3) change = {...change,relationships:s.relationships};
       if(s.phase === 4) change = {...change,formulas:s.formulas.length ? s.formulas.map(f => ({...f,result:calculateFormula(f.formula,s.processed),verified:false})) : proposedFormulas(s.processed)};
-      if(s.phase === 5) change = {...change,charts:s.charts.length ? s.charts : proposedCharts(s.processed)};
+      if(s.phase === 5) change = {...change,charts:s.charts.length ? s.charts : proposedCharts(s.processed,s.prompt)};
       patch({...change,activity:[...s.activity,{text:`${PHASES[s.phase]} processed`,phase:s.phase,time:new Date().toISOString()}]});
       toast.success("Results ready for review.");
     } catch(e) { setError(e instanceof Error ? e.message : "Processing failed."); }

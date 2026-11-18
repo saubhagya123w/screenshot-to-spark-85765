@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { ShieldCheck, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +15,9 @@ export const Route = createFileRoute("/sessions/new")({
   component: NewSession,
 });
 function NewSession() {
-  const { data, addSession } = usePrototype();
+  const { data, userId, addSession } = usePrototype();
   const navigate = useNavigate();
-  function create(e: React.FormEvent<HTMLFormElement>) {
+  async function create(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const collaborator = String(f.get("collaborator") ?? "");
@@ -41,9 +42,12 @@ function NewSession() {
       },
       data.sessions.map((s) => s.id),
     );
-    addSession(s);
-    navigate({ to: "/sessions/$sessionId", params: { sessionId: s.id } });
+    try {
+      await addSession(s);
+      await navigate({ to: "/sessions/$sessionId", params: { sessionId: s.id } });
+    } catch(error) { toast.error(error instanceof Error ? error.message : "Session could not be created."); }
   }
+  if(!userId) return <><PageHeading title="New secure session" subtitle="Sign in to create a private session."/><Button asChild><Link to="/auth">Sign in</Link></Button></>;
   return (
     <>
       <PageHeading
